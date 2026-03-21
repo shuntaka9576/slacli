@@ -25,11 +25,7 @@ pub fn execute(
     for skill in &skills {
         let dest = dir.join(&skill.dir);
         if !metadata::is_managed(&dest) {
-            writeln!(
-                out,
-                "skipped:     {} — not managed by {}",
-                skill.dir, name
-            )?;
+            writeln!(out, "skipped:     {} — not managed by {}", skill.dir, name)?;
             continue;
         }
 

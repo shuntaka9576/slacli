@@ -131,7 +131,13 @@ impl Smith {
                 )?;
             }
             SkillsCommand::Uninstall(ref a) => {
-                commands::uninstall::execute(effective_dir, &self.name, a, &mut self.out, &mut self.err_w)?;
+                commands::uninstall::execute(
+                    effective_dir,
+                    &self.name,
+                    a,
+                    &mut self.out,
+                    &mut self.err_w,
+                )?;
             }
             SkillsCommand::Status(ref a) => {
                 commands::status::execute(
