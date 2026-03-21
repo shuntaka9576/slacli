@@ -50,6 +50,8 @@ Required Slack App scopes.
 | `chat delete` | `chat.delete` | Bot | `chat:write` |
 | `profile edit` | `users.profile.set` | User | `users.profile:write` |
 
+slacli is designed to work with minimal Slack API scopes. Information that would require additional scopes (e.g. `users.profile:read`) is retrieved from local logs instead.
+
 ## Usage
 
 ```bash
