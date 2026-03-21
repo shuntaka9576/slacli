@@ -159,6 +159,17 @@ slacli profile edit --set display_name="shuntaka"
 
 ## Tips
 
+### Reply to a thread from a Slack URL
+
+Given a Slack message URL like `https://workspace.slack.com/archives/<CHANNEL_ID>/p<TS_WITHOUT_DOT>`:
+
+- **channel**: the path segment after `/archives/` → `<CHANNEL_ID>`
+- **thread-ts**: the `p`-prefixed number with a dot inserted before the last 6 digits (e.g. `p1234567890123456` → `1234567890.123456`)
+
+```bash
+slacli chat send --channel <CHANNEL_ID> --thread-ts <TS> --text "Reply from slacli"
+```
+
 ### Delete a message interactively with fzf
 
 ```bash
