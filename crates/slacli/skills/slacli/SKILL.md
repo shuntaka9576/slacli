@@ -27,6 +27,20 @@ Prompts interactively for profile name, description, and tokens (Bot `xoxb-` / U
 
 You can enter only one token at a time — existing tokens are preserved (merge mode).
 
+### Channel Aliases
+
+Define channel aliases in `config.toml` under each profile so AI agents can easily find the right channel.
+
+```toml
+[profiles.work.channels]
+dev = { id = "C01ABCDEF", description = "Dev team channel" }
+general = { id = "C02XYZXYZ", description = "General announcements" }
+```
+
+Then use `slacli chat send --channel dev --text "hello"` instead of the full channel ID.
+
+To discover available channel aliases, run `slacli config --see`.
+
 ## Multi-profile support
 
 Multiple Slack workspaces can be managed via profiles. Use `--profile <name>` to switch:
@@ -159,65 +173,41 @@ slacli profile edit --set display_name="shuntaka"
 
 ## Tips
 
-### Reply to a thread from a Slack URL
+### Identify a message from a Slack URL
 
 Given a Slack message URL like `https://workspace.slack.com/archives/<CHANNEL_ID>/p<TS_WITHOUT_DOT>`:
 
 - **channel**: the path segment after `/archives/` → `<CHANNEL_ID>`
-- **thread-ts**: the `p`-prefixed number with a dot inserted before the last 6 digits (e.g. `p1234567890123456` → `1234567890.123456`)
+- **ts**: the `p`-prefixed number with a dot inserted before the last 6 digits (e.g. `p1234567890123456` → `1234567890.123456`)
+
+These values can be used with any command that takes `--channel` and a timestamp.
 
 ```bash
+# Reply to a thread
 slacli chat send --channel <CHANNEL_ID> --thread-ts <TS> --text "Reply from slacli"
+
+# Delete the message
+slacli chat delete --channel <CHANNEL_ID> --timestamp <TS>
 ```
 
-### Delete a message interactively with fzf
+### Retrieve information from logs
+
+slacli operates with minimal Slack API scopes. Logs provide a way to retrieve information that would otherwise require additional scopes (e.g. `users.profile:read`).
+
+#### Identify a sent message
+
+Since `channels:history` scope is not granted, sent message logs are the only way to look up a previously sent message's `ts`.
 
 ```bash
-slacli logs --type chat-send \
-  | jq -r '[.ts, .channel, ._slacli_profile, .message.text] | @tsv' \
-  | fzf --with-nth=4.. --prompt="Delete> " \
-  | { read ts channel profile _; slacli --profile "$profile" chat delete --channel "$channel" --timestamp "$ts"; }
+slacli logs --type chat-send | jq -r '[.ts, .channel, ._slacli_profile, .message.text] | @tsv'
 ```
 
-### Look up past profile info from logs
+Returns `ts`, `channel`, and `profile` for each sent message. Use these to delete a message or reply to its thread.
 
-Since `users.profile:read` scope is not granted, `profile edit` logs are the only way to retrieve past profile state (display_name, status, etc.).
+#### Look up profile info
+
+Since `users.profile:read` scope is not granted, logs are the only way to retrieve past profile state.
 
 ```bash
-# Show last profile snapshot
 slacli logs --type profile-edit | tail -1 | jq '.profile | {display_name, status_emoji, status_text}'
-
-# Browse profile history with fzf and restore a previous status
-slacli logs --type profile-edit \
-  | jq -r '[.profile.status_emoji, .profile.status_text, ._slacli_profile] | @tsv' \
-  | fzf --prompt="Restore status> " \
-  | { read emoji text profile; slacli --profile "$profile" profile edit --set "status_emoji=$emoji" --set "status_text=$text"; }
 ```
-
-## Channel Aliases
-
-Define channel aliases in `config.toml` under each profile so AI agents can easily find the right channel.
-
-```toml
-[profiles.work.channels]
-dev = { id = "C01ABCDEF", description = "Dev team channel" }
-general = { id = "C02XYZXYZ", description = "General announcements" }
-```
-
-Then use `slacli chat send --channel dev --text "hello"` instead of the full channel ID.
-
-To discover available channel aliases, run `slacli config --see`.
-
-## Notes
-
-- All Slack commands output raw API JSON to stdout
-- Errors are written to stderr as JSON: `{"ok": false, "error": "...", "detail": "..."}`
-- Token resolution is credentials.toml only (no environment variable fallback)
-
-## Error handling
-
-When a Slack API error is returned (e.g. `missing_scope`, `not_allowed_token_type`), check the error and guide the user with available workarounds:
-
-| Scope / Error | Workaround |
-|---------------|------------|
-| `users.profile:read` not granted | Use `slacli profile edit` response to read current profile, or `slacli logs --type profile-edit` for past profile state |
