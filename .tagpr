@@ -1,0 +1,7 @@
+# tagpr configuration
+[tagpr]
+vPrefix = true
+releaseBranch = main
+versionFile = crates/slacli/Cargo.toml
+release = draft
+postVersionCommand = cargo update --workspace
