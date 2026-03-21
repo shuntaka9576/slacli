@@ -1,0 +1,56 @@
+version: 2
+project_name: slacli
+
+release:
+  use_existing_draft: true
+
+before:
+  hooks:
+    - rustup default stable
+    - cargo install --locked cargo-zigbuild
+
+builds:
+  - id: "slacli"
+    builder: rust
+    binary: slacli
+    targets:
+      - aarch64-apple-darwin
+      - x86_64-unknown-linux-gnu
+    tool: "cargo"
+    command: zigbuild
+    flags:
+      - --release
+      - --package=slacli
+
+archives:
+  - formats: ["tar.gz"]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  - repository:
+      owner: shuntaka9576
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: bot@goreleaser.com
+    directory: Formula
+    license: MIT
+    name: slacli
+    url_template: "https://github.com/shuntaka9576/slacli/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    homepage: "https://shuntaka.dev/"
+    description: "Slack CLI built with Rust"
+    test: |
+      system "#{bin}/slacli --help"
+    install: |
+      bin.install "slacli"
