@@ -1,6 +1,6 @@
 ---
 name: slacli
-description: Operate Slack from the terminal — send messages, delete messages, update status/presence. Use when the user wants to interact with Slack.
+description: Operate Slack from the terminal — send messages, reply to threads, delete messages, update status/presence, and edit profiles. Use this skill whenever the user mentions Slack messaging, posting to a channel, replying to a thread, changing Slack status, editing their Slack profile, or references a Slack message URL. Also trigger when the user wants to send something on Slack, change their status, or interact with Slack in any way.
 license: MIT
 compatibility:
   - claude
@@ -23,7 +23,7 @@ slacli init
 Prompts interactively for profile name, description, and tokens (Bot `xoxb-` / User `xoxp-`). Configuration is split into two files:
 
 - `$XDG_CONFIG_HOME/slacli/config.toml` — profile metadata and channel aliases (safe to commit to dotfiles)
-- `$XDG_CONFIG_HOME/slacli/credentials.toml` — tokens only (permission 0600, do NOT commit)
+- `$XDG_CONFIG_HOME/slacli/credentials.toml` — tokens only (permission 0600, do NOT commit to avoid token leakage)
 
 You can enter only one token at a time — existing tokens are preserved (merge mode).
 
@@ -53,11 +53,11 @@ If `--profile` is omitted, `default_profile` from `config.toml` is used.
 
 ## Before any operation
 
-Always run `slacli config --see` first (without `--profile`) to discover all profiles and their channel aliases. When the user's request spans multiple profiles (e.g., "all channels"), operate on every profile — not just the default.
+Run `slacli config --see` first (without `--profile`) to discover all profiles and their channel aliases. This is important because channel aliases and profile names vary per user's setup, and without this context you risk sending to a wrong channel or using a nonexistent profile. When the user's request spans multiple profiles (e.g., "all channels"), operate on every profile — not just the default.
 
 ## Confirmation required before sending messages
 
-Before executing `slacli chat send`, you MUST use AskUserQuestion to ask the user which profile and channel to send to. Present the available profiles and their channel aliases (from `slacli config --see`) as choices so the user can select the destination.
+Before executing `slacli chat send`, use AskUserQuestion to confirm the destination profile and channel with the user. Sending a message to the wrong channel is irreversible and potentially embarrassing — especially in a work Slack — so always verify before sending. Present the available profiles and their channel aliases (from `slacli config --see`) as choices so the user can select the destination.
 
 ## Commands
 
@@ -107,6 +107,8 @@ slacli --profile personal chat send --channel personal --text "hello"
 
 ### Delete a message
 
+The bot can only delete messages it posted — attempting to delete another user's message will fail with `cant_delete_message`.
+
 ```bash
 slacli chat delete --channel <CHANNEL_ID_OR_ALIAS> --timestamp <TS>
 ```
@@ -114,7 +116,6 @@ slacli chat delete --channel <CHANNEL_ID_OR_ALIAS> --timestamp <TS>
 - Requires Bot Token (`xoxb-`, scope: `chat:write`)
 - `--channel` accepts a channel ID or alias
 - `--timestamp` is the Slack message `ts` value (e.g. `1710000000.000100`)
-- Bot can only delete messages it posted
 - Use `slacli logs --type chat-send` to find the `ts` of a previously sent message
 - Output: raw JSON from `chat.delete` API
 
@@ -155,7 +156,7 @@ slacli logs --type profile-edit --purge
 # Set status
 slacli profile edit --set status_text="In a meeting" --set status_emoji=":calendar:"
 
-# Set status with expiration (Unix timestamp)
+# Set status with expiration (absolute Unix timestamp, not relative)
 slacli profile edit --set status_text="Lunch" --set status_emoji=":fork_and_knife:" --set status_expiration=1710763200
 
 # Clear status
@@ -170,6 +171,16 @@ slacli profile edit --set display_name="shuntaka"
 - `--set` (`-s`) accepts any `users.profile.set` field as `key=value` (repeatable)
 - Omitted fields are left unchanged
 - Output: raw JSON from `users.profile.set` API (includes full profile in response)
+
+## Error handling
+
+slacli outputs errors to stderr as JSON (`{"ok": false, "error": "...", "detail": "..."}`). Common errors and how to handle them:
+
+- `not_authed` / `invalid_auth` — token is missing or invalid. Suggest the user run `slacli init` to configure tokens
+- `channel_not_found` — channel ID or alias doesn't exist. Run `slacli config --see` to verify available channels
+- `cant_delete_message` — bot can only delete messages it posted
+
+If any command fails with `not_authed` on first use, the user likely hasn't run `slacli init` yet. Guide them through the interactive setup.
 
 ## Tips
 
